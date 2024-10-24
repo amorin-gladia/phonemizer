@@ -55,9 +55,7 @@ class EspeakWrapper:
         self._version: Tuple[int, ...] = None
         self._data_path = None
         self._voice = None
-
-        # load the espeak API
-        self._espeak = EspeakAPI(self.library())
+        self._espeak = None
 
         # lazy loading of attributes only required for the synthetize method
         self._libc_ = None
@@ -153,7 +151,7 @@ class EspeakWrapper:
 
     def _fetch_version_and_path(self):
         """Initializes version and dapa path from the espeak library"""
-        version, data_path = self._espeak.info()
+        version, data_path = self.get_espeak().info()
 
         # pylint: disable=no-member
         self._data_path = pathlib.Path(data_path.decode())
@@ -175,7 +173,7 @@ class EspeakWrapper:
     @property
     def library_path(self):
         """The espeak library as a pathlib.Path instance"""
-        return self._espeak.library_path
+        return self.get_espeak().library_path
 
     @property
     def data_path(self):
@@ -198,7 +196,7 @@ class EspeakWrapper:
         """Voices available for phonemization, as a list of `EspeakVoice`"""
         if name:
             name = EspeakVoice(language=name).to_ctypes()
-        voices = self._espeak.list_voices(name or None)
+        voices = self.get_espeak().list_voices(name or None)
 
         index = 0
         available_voices = []
@@ -211,6 +209,11 @@ class EspeakWrapper:
                 identifier=os.fsdecode(voice.identifier)))
             index += 1
         return available_voices
+        
+    def get_espeak(self):
+        if self._espeak is None:
+            self._espeak = EspeakAPI(self.library())
+        return self._espeak
 
     def set_voice(self, voice_code):
         """Setup the voice to use for phonemization
@@ -245,7 +248,7 @@ class EspeakWrapper:
         except KeyError:
             raise RuntimeError(f'invalid voice code "{voice_code}"') from None
 
-        if self._espeak.set_voice_by_name(voice_name.encode('utf8')) != 0:
+        if self.get_espeak().set_voice_by_name(voice_name.encode('utf8')) != 0:
             raise RuntimeError(  # pragma: nocover
                 f'failed to load voice "{voice_code}"')
 
@@ -260,7 +263,7 @@ class EspeakWrapper:
         If no voice has been set up, returns None.
 
         """
-        voice = self._espeak.get_current_voice()
+        voice = self.get_espeak().get_current_voice()
         if voice.name:
             return EspeakVoice.from_ctypes(voice)
         return None  # pragma: nocover
@@ -311,7 +314,7 @@ class EspeakWrapper:
 
         result = []
         while text_ptr.contents.value is not None:
-            phonemes = self._espeak.text_to_phonemes(
+            phonemes = self.get_espeak().text_to_phonemes(
                 text_ptr, text_mode, phonemes_mode)
             if phonemes:
                 result.append(phonemes.decode())
@@ -355,8 +358,8 @@ class EspeakWrapper:
             self._tempfile.name.encode(),
             self._tempfile.mode.encode())
 
-        self._espeak.set_phoneme_trace(0x01 << 4 | ord('_') << 8, file_p)
-        status = self._espeak.synthetize(
+        self.get_espeak().set_phoneme_trace(0x01 << 4 | ord('_') << 8, file_p)
+        status = self.get_espeak().synthetize(
             ctypes.c_char_p(text.encode('utf8')),
             ctypes.c_size_t(len(text) + 1),
             ctypes.c_uint(0x01))

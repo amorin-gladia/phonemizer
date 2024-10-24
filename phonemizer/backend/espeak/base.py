@@ -84,7 +84,10 @@ class BaseEspeakBackend(BaseBackend):
     @classmethod
     def is_available(cls) -> bool:
         try:
-            EspeakWrapper()
+            wrapper = EspeakWrapper()
+            if wrapper._espeak is not None:
+                wrapper._espeak._clean_memory()
+            del wrapper
         except RuntimeError:  # pragma: nocover
             return False
         return True
@@ -105,7 +108,12 @@ class BaseEspeakBackend(BaseBackend):
             version cannot be extracted for some reason.
 
         """
-        return EspeakWrapper().version
+        wrapper = EspeakWrapper()
+        version = wrapper.version
+        if wrapper._espeak is not None:
+            wrapper._espeak._clean_memory()
+        del wrapper
+        return version
 
     @abc.abstractmethod
     def _postprocess_line(self, line: str, num: int,

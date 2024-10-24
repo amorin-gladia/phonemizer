@@ -75,10 +75,15 @@ class EspeakBackend(BaseEspeakBackend):
 
     @classmethod
     def supported_languages(cls):
-        return {
+        wrapper = EspeakWrapper()
+        languages = {
             voice.language: voice.name
-            for voice in EspeakWrapper().available_voices()}
-
+            for voice in wrapper.available_voices()}
+        if wrapper._espeak is not None:
+            wrapper._espeak._clean_memory()
+        del wrapper
+        return languages
+      
     def _phonemize_aux(self, text, offset, separator, strip):
         if self._tie is not None and separator.phone:
             self.logger.warning(

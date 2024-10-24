@@ -93,6 +93,9 @@ class EspeakAPI:
         # the path to the original one (the copy is considered an
         # implementation detail and is not exposed)
         self._library_path = library_path
+        
+    def _clean_memory(self):
+        self._delete_win32()
 
     def _delete_win32(self):  # pragma: nocover
         # Windows does not support static methods with ctypes libraries
